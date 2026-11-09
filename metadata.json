@@ -1,0 +1,8 @@
+{
+  "name": "BARAYA AI – برايا",
+  "description": "Professional Arabic & English AI creative design studio, brand identity, and marketplace by Mohamed Baraya.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
