@@ -1,4 +1,3 @@
-
 package com.example.data.remote
 
 import android.content.Context
@@ -76,7 +75,9 @@ class Fokof2AuthApi(context: Context) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
 
-        val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
+        val encrypted = cipher.doFinal(
+            token.toByteArray(Charsets.UTF_8)
+        )
 
         prefs.edit()
             .putString(
@@ -98,16 +99,23 @@ class Fokof2AuthApi(context: Context) {
 
     private fun readToken(): String? {
         return try {
-            val encrypted = prefs.getString(TOKEN_KEY, null) ?: return null
-            val iv = prefs.getString(IV_KEY, null) ?: return null
+            val encrypted = prefs.getString(TOKEN_KEY, null)
+                ?: return null
+
+            val iv = prefs.getString(IV_KEY, null)
+                ?: return null
 
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+
             cipher.init(
                 Cipher.DECRYPT_MODE,
                 getSecretKey(),
                 GCMParameterSpec(
                     128,
-                    android.util.Base64.decode(iv, android.util.Base64.NO_WRAP)
+                    android.util.Base64.decode(
+                        iv,
+                        android.util.Base64.NO_WRAP
+                    )
                 )
             )
 
@@ -120,6 +128,7 @@ class Fokof2AuthApi(context: Context) {
                 ),
                 Charsets.UTF_8
             )
+
         } catch (_: Exception) {
             clearToken()
             null
@@ -150,13 +159,18 @@ class Fokof2AuthApi(context: Context) {
 
         when (method) {
             "POST" -> builder.post(
-                (body ?: JSONObject()).toString().toRequestBody(jsonType)
+                (body ?: JSONObject())
+                    .toString()
+                    .toRequestBody(jsonType)
             )
+
             "GET" -> builder.get()
+
             else -> error("Unsupported HTTP method")
         }
 
         client.newCall(builder.build()).execute().use { response ->
+
             val responseText = response.body?.string().orEmpty()
 
             val result = try {
@@ -165,8 +179,15 @@ class Fokof2AuthApi(context: Context) {
                 JSONObject()
             }
 
-            if (!response.isSuccessful || result.optBoolean("ok") == false) {
-                val code = result.optString("error", "server_error")
+            if (
+                !response.isSuccessful ||
+                result.optBoolean("ok") == false
+            ) {
+                val code = result.optString(
+                    "error",
+                    "server_error"
+                )
+
                 throw Exception(errorMessage(code))
             }
 
@@ -176,47 +197,49 @@ class Fokof2AuthApi(context: Context) {
 
     private fun errorMessage(code: String): String {
         return when (code) {
-            "invalid_email" -> "البريد الإلكتروني غير صحيح"
-            "invalid_name" -> "الاسم غير صحيح"
-            "email_already_registered" -> "هذا البريد مسجل بالفعل"
-            "invalid_credentials" -> "البريد أو كلمة المرور غير صحيحة"
+            "invalid_email" ->
+                "البريد الإلكتروني غير صحيح"
+
+            "invalid_name" ->
+                "الاسم غير صحيح"
+
+            "email_already_registered" ->
+                "هذا البريد مسجل بالفعل"
+
+            "invalid_credentials" ->
+                "البريد أو كلمة المرور غير صحيحة"
+
             "password_must_be_10_to_128_characters" ->
                 "كلمة المرور يجب أن تكون من 10 إلى 128 حرفًا"
-            "unauthorized" -> "انتهت الجلسة، سجل الدخول مرة أخرى"
+
+            "unauthorized" ->
+                "انتهت الجلسة، سجل الدخول مرة أخرى"
+
             "owner_setup_not_configured" ->
                 "إعداد حساب المالك لم يكتمل بعد"
-            else -> "حدث خطأ في الاتصال. حاول مرة أخرى"
+
+            else ->
+                "حدث خطأ في الاتصال. حاول مرة أخرى"
         }
     }
-private fun parseUser(json: JSONObject): UserProfile {
-    val displayName = json.optString("displayName")
-        .ifBlank {
-            json.optString("display_name")
-        }
-        .ifBlank {
-            json.optString("name")
-        }
 
-    return UserProfile(
-        id = json.optString("id"),
-        name = displayName,
-        email = json.optString("email"),
-        phone = json.optString("phone"),
-        bio = "",
-        isVip = json.optBoolean("isVip", false),
-        isGuest = false,
-        role = json.optString("role", "USER"),
-        avatarIndex = 0,
-        memberSince = "2026"
-    )
-}
+    private fun parseUser(json: JSONObject): UserProfile {
+
+        val displayName = json.optString("displayName")
+            .ifBlank {
+                json.optString("display_name")
+            }
+            .ifBlank {
+                json.optString("name")
+            }
+
         return UserProfile(
             id = json.optString("id"),
-            name = json.optString("displayName"),
+            name = displayName,
             email = json.optString("email"),
-            phone = "",
+            phone = json.optString("phone"),
             bio = "",
-            isVip = false,
+            isVip = json.optBoolean("isVip", false),
             isGuest = false,
             role = json.optString("role", "USER"),
             avatarIndex = 0,
@@ -230,6 +253,7 @@ private fun parseUser(json: JSONObject): UserProfile {
         password: String,
         phone: String = ""
     ): UserProfile {
+
         val body = JSONObject().apply {
             put("name", name.trim())
             put("email", email.trim().lowercase())
@@ -237,12 +261,20 @@ private fun parseUser(json: JSONObject): UserProfile {
             put("phone", phone.trim())
         }
 
-        val result = request("/auth/register", "POST", body)
+        val result = request(
+            "/auth/register",
+            "POST",
+            body
+        )
+
         val token = result.optString("token")
 
-        if (token.isBlank()) error("لم يستلم التطبيق رمز الجلسة")
+        if (token.isBlank()) {
+            error("لم يستلم التطبيق رمز الجلسة")
+        }
 
         saveToken(token)
+
         return parseUser(result.getJSONObject("user"))
     }
 
@@ -250,26 +282,41 @@ private fun parseUser(json: JSONObject): UserProfile {
         email: String,
         password: String
     ): UserProfile {
+
         val body = JSONObject().apply {
             put("email", email.trim().lowercase())
             put("password", password)
         }
 
-        val result = request("/auth/login", "POST", body)
+        val result = request(
+            "/auth/login",
+            "POST",
+            body
+        )
+
         val token = result.optString("token")
 
-        if (token.isBlank()) error("لم يستلم التطبيق رمز الجلسة")
+        if (token.isBlank()) {
+            error("لم يستلم التطبيق رمز الجلسة")
+        }
 
         saveToken(token)
+
         return parseUser(result.getJSONObject("user"))
     }
 
     suspend fun restoreSession(): UserProfile? {
+
         val token = readToken() ?: return null
 
         return try {
-            val result = request("/auth/me", token = token)
+            val result = request(
+                "/auth/me",
+                token = token
+            )
+
             parseUser(result.getJSONObject("user"))
+
         } catch (_: Exception) {
             clearToken()
             null
@@ -277,6 +324,7 @@ private fun parseUser(json: JSONObject): UserProfile {
     }
 
     suspend fun logout() {
+
         val token = readToken()
 
         try {
