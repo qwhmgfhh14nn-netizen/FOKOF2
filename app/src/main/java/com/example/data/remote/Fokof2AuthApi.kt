@@ -1,3 +1,4 @@
+
 package com.example.data.remote
 
 import android.content.Context
@@ -42,6 +43,11 @@ class Fokof2AuthApi(context: Context) {
     private val jsonType =
         "application/json; charset=utf-8".toMediaType()
 
+    private class AuthHttpException(
+        val statusCode: Int,
+        message: String
+    ) : Exception(message)
+
     private fun getSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore")
         keyStore.load(null)
@@ -57,8 +63,8 @@ class Fokof2AuthApi(context: Context) {
         generator.init(
             KeyGenParameterSpec.Builder(
                 KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT or
-                    KeyProperties.PURPOSE_DECRYPT
+                KeyGenParameterSpec.PURPOSE_ENCRYPT or
+                    KeyGenParameterSpec.PURPOSE_DECRYPT
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(
@@ -72,6 +78,10 @@ class Fokof2AuthApi(context: Context) {
     }
 
     private fun saveToken(token: String) {
+        require(token.isNotBlank()) {
+            "رمز الجلسة فارغ"
+        }
+
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
 
@@ -179,16 +189,16 @@ class Fokof2AuthApi(context: Context) {
                 JSONObject()
             }
 
-            if (
-                !response.isSuccessful ||
-                result.optBoolean("ok") == false
-            ) {
+            if (!response.isSuccessful || result.optBoolean("ok") == false) {
                 val code = result.optString(
                     "error",
                     "server_error"
                 )
 
-                throw Exception(errorMessage(code))
+                throw AuthHttpException(
+                    response.code,
+                    errorMessage(code)
+                )
             }
 
             result
@@ -273,9 +283,18 @@ class Fokof2AuthApi(context: Context) {
             error("لم يستلم التطبيق رمز الجلسة")
         }
 
+        val user = result.optJSONObject("user")
+            ?: error("بيانات المستخدم غير موجودة في استجابة الخادم")
+
+        val profile = parseUser(user)
+
+        if (profile.id.isBlank() || profile.email.isBlank()) {
+            error("بيانات الحساب المستلمة من الخادم غير مكتملة")
+        }
+
         saveToken(token)
 
-        return parseUser(result.getJSONObject("user"))
+        return profile
     }
 
     suspend fun login(
@@ -300,9 +319,18 @@ class Fokof2AuthApi(context: Context) {
             error("لم يستلم التطبيق رمز الجلسة")
         }
 
+        val user = result.optJSONObject("user")
+            ?: error("بيانات المستخدم غير موجودة في استجابة الخادم")
+
+        val profile = parseUser(user)
+
+        if (profile.id.isBlank() || profile.email.isBlank()) {
+            error("بيانات الحساب المستلمة من الخادم غير مكتملة")
+        }
+
         saveToken(token)
 
-        return parseUser(result.getJSONObject("user"))
+        return profile
     }
 
     suspend fun restoreSession(): UserProfile? {
@@ -315,11 +343,23 @@ class Fokof2AuthApi(context: Context) {
                 token = token
             )
 
-            parseUser(result.getJSONObject("user"))
+            val user = result.optJSONObject("user")
+                ?: error("بيانات الجلسة غير موجودة")
 
-        } catch (_: Exception) {
-            clearToken()
-            null
+            parseUser(user)
+
+        } catch (e: AuthHttpException) {
+
+            if (e.statusCode == 401 || e.statusCode == 403) {
+                clearToken()
+                null
+            } else {
+                throw e
+            }
+
+        } catch (e: Exception) {
+            // لا نمسح رمز الجلسة بسبب انقطاع الإنترنت المؤقت
+            throw e
         }
     }
 
