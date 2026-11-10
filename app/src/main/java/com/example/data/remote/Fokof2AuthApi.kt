@@ -188,8 +188,28 @@ class Fokof2AuthApi(context: Context) {
             else -> "حدث خطأ في الاتصال. حاول مرة أخرى"
         }
     }
+private fun parseUser(json: JSONObject): UserProfile {
+    val displayName = json.optString("displayName")
+        .ifBlank {
+            json.optString("display_name")
+        }
+        .ifBlank {
+            json.optString("name")
+        }
 
-    private fun parseUser(json: JSONObject): UserProfile {
+    return UserProfile(
+        id = json.optString("id"),
+        name = displayName,
+        email = json.optString("email"),
+        phone = json.optString("phone"),
+        bio = "",
+        isVip = json.optBoolean("isVip", false),
+        isGuest = false,
+        role = json.optString("role", "USER"),
+        avatarIndex = 0,
+        memberSince = "2026"
+    )
+}
         return UserProfile(
             id = json.optString("id"),
             name = json.optString("displayName"),
